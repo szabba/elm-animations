@@ -1,0 +1,14 @@
+{
+    "version": "1.0.0",
+    "summary": "A package for animating arbitrary values",
+    "repository": "https://github.com/szabba/elm-animations.git",
+    "license": "MPL2",
+    "source-directories": [
+        "."
+    ],
+    "exposed-modules": [],
+    "dependencies": {
+        "elm-lang/core": "4.0.1 <= v < 5.0.0"
+    },
+    "elm-version": "0.17.0 <= v < 0.18.0"
+}
