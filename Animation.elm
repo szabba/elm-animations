@@ -25,7 +25,7 @@ module Animation
 # Running
 @docs run, runState, isDone
 
-# Sampling
+# Sampling and querying
 @docs sample, sampleState
 
 # Building
@@ -91,12 +91,11 @@ run t animation =
 -}
 runState : Time -> State a -> State a
 runState dt state =
-    case state of
-        Done value ->
-            state
+    stateMap (run dt) Done state
 
-        Continuing animation ->
-            run dt animation
+
+
+-- QUERY
 
 
 {-| Gets the current value of the animation.
@@ -119,12 +118,7 @@ reached.
 -}
 sampleState : State a -> a
 sampleState state =
-    case state of
-        Done value ->
-            value
-
-        Continuing animation ->
-            sample animation
+    stateMap sample identity state
 
 
 {-| True when the animation is over. It can make code clearer when you want to
@@ -133,12 +127,11 @@ do things that don't depend on the final/current value.
 -}
 isDone : State a -> Bool
 isDone state =
-    case state of
-        Done _ ->
-            True
+    stateMap (always False) (always True) state
 
-        Continuing _ ->
-            False
+
+
+-- BUILD
 
 
 {-| Creates an animation that takes no time and assumes the specified value.
@@ -188,3 +181,17 @@ map g animation =
 
             WithPrefix step rest ->
                 WithPrefix (mapStep step) (map g rest)
+
+
+
+-- HELPERS
+
+
+stateMap : (Animation a -> b) -> (a -> b) -> State a -> b
+stateMap f g state =
+    case state of
+        Continuing anim ->
+            f anim
+
+        Done x ->
+            g x
