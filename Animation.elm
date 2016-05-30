@@ -6,31 +6,30 @@
 module Animation
     exposing
         ( Animation
-        , State(..)
-        , run
-        , runState
-        , sample
-        , sampleState
-        , isDone
         , interval
         , append
         , map
         , immediately
+        , sample
+        , timeLeft
+        , State(..)
+        , isDone
+        , run
+        , runState
+        , sampleState
+        , timeLeftState
         )
 
 {-|
 
-@docs Animation
+@docs Animation, interval, map, immediately, append
+
+# Queries
+@docs sample, timeLeft
 
 # Running
-@docs State, run, runState, isDone
-
-
-# Building
-@docs interval, map, immediately, append
-
-# Sampling and querying
-@docs sample, sampleState
+@docs State, isDone, run
+@docs runState, sampleState, timeLeftState
 
 
 -}
@@ -188,6 +187,32 @@ do things that don't depend on the final/current value.
 isDone : State a -> Bool
 isDone state =
     stateMap (always False) (always True) state
+
+
+{-| The time left until the animation ends.
+
+-}
+timeLeft : Animation a -> Time
+timeLeft anim =
+    case anim of
+        LastStep step ->
+            stepTimeLeft step
+
+        WithPrefix step rest ->
+            stepTimeLeft step + timeLeft rest
+
+
+{-| Like [`time`](#time), but for animation states instead of animations.
+
+-}
+timeLeftState : State a -> Time
+timeLeftState state =
+    stateMap timeLeft (always 0) state
+
+
+stepTimeLeft : Step a -> Time
+stepTimeLeft { now, end } =
+    end - now
 
 
 
