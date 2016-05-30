@@ -140,17 +140,18 @@ append first second =
 
 -}
 map : (a -> b) -> Animation a -> Animation b
-map g animation =
-    let
-        mapStep ({ f } as step) =
-            { step | f = f >> g }
-    in
-        case animation of
-            LastStep step ->
-                LastStep <| mapStep step
+map f animation =
+    case animation of
+        LastStep step ->
+            LastStep <| mapStep f step
 
-            WithPrefix step rest ->
-                WithPrefix (mapStep step) (map g rest)
+        WithPrefix step rest ->
+            WithPrefix (mapStep f step) (map f rest)
+
+
+mapStep : (a -> b) -> Step a -> Step b
+mapStep g ({ f } as step) =
+    { step | f = f >> g }
 
 
 
