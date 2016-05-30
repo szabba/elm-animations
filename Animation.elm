@@ -41,8 +41,7 @@ import Time exposing (Time)
 
 -}
 type Animation a
-    = LastStep (Step a)
-    | WithPrefix (Step a) (Animation a)
+    = Animation (Step a) (List (Step a))
 
 
 type alias Step a =
@@ -68,27 +67,18 @@ type State a
 
 -}
 run : Time -> Animation a -> State a
-run t animation =
+run t ((Animation step rest) as animation) =
     if t < 0 then
-        Continuing animation
+        animation |> Continuing
+    else if t < step.end - step.now then
+        { step | now = step.now + t }
+            |> flip Animation rest
+            |> Continuing
     else
-        let
-            runStep ({ now, end } as step) wrapStep orElse =
-                if now + t < end then
-                    wrapStep { step | now = now + t }
-                else
-                    orElse ()
-        in
-            case animation of
-                LastStep ({ end, f } as step) ->
-                    runStep step
-                        (Continuing << LastStep)
-                        (\_ -> Done <| f end)
-
-                WithPrefix ({ now, end } as step) rest ->
-                    runStep step
-                        (Continuing << flip WithPrefix rest)
-                        (\_ -> run (t - (end - now)) rest)
+        animation
+            |> dropStep
+            |> Maybe.map (run <| t - timeLeftStep step)
+            |> Maybe.withDefault (Done <| sample animation)
 
 
 {-| Like [`run`](#run) but accepts an animation state instead of an animation.
@@ -119,33 +109,24 @@ For negative values you'll get the zero interval.
 -}
 interval : Time -> Animation Time
 interval t =
-    LastStep { now = 0, end = t, f = identity }
+    { now = 0, end = t, f = identity }
+        |> flip Animation []
 
 
 {-| Glues two animations together.
 
 -}
 append : Animation a -> Animation a -> Animation a
-append first second =
-    case first of
-        LastStep step ->
-            WithPrefix step second
-
-        WithPrefix step rest ->
-            WithPrefix step (rest `append` second)
+append (Animation step rest) (Animation rest' rest'') =
+    Animation step <| rest ++ [ rest' ] ++ rest''
 
 
 {-| Builds an animation with the values transformed by a function.
 
 -}
 map : (a -> b) -> Animation a -> Animation b
-map f animation =
-    case animation of
-        LastStep step ->
-            LastStep <| mapStep f step
-
-        WithPrefix step rest ->
-            WithPrefix (mapStep f step) (map f rest)
+map f (Animation step rest) =
+    Animation (mapStep f step) <| List.map (mapStep f) rest
 
 
 mapStep : (a -> b) -> Step a -> Step b
@@ -161,13 +142,8 @@ mapStep g ({ f } as step) =
 
 -}
 sample : Animation a -> a
-sample animation =
-    case animation of
-        LastStep { now, f } ->
-            f now
-
-        WithPrefix { now, f } _ ->
-            f now
+sample (Animation { now, f } _) =
+    f now
 
 
 {-| Like [`sample`](#sample) for animation states instead of animations. If the
@@ -193,13 +169,11 @@ isDone state =
 
 -}
 timeLeft : Animation a -> Time
-timeLeft anim =
-    case anim of
-        LastStep step ->
-            stepTimeLeft step
-
-        WithPrefix step rest ->
-            stepTimeLeft step + timeLeft rest
+timeLeft (Animation step rest) =
+    rest
+        |> List.map timeLeftStep
+        |> List.sum
+        |> (+) (timeLeftStep step)
 
 
 {-| Like [`time`](#time), but for animation states instead of animations.
@@ -210,8 +184,8 @@ timeLeftState state =
     stateMap timeLeft (always 0) state
 
 
-stepTimeLeft : Step a -> Time
-stepTimeLeft { now, end } =
+timeLeftStep : Step a -> Time
+timeLeftStep { now, end } =
     end - now
 
 
@@ -227,3 +201,13 @@ stateMap f g state =
 
         Done x ->
             g x
+
+
+dropStep : Animation a -> Maybe (Animation a)
+dropStep (Animation _ rest) =
+    case rest of
+        step :: rest ->
+            Just <| Animation step rest
+
+        [] ->
+            Nothing
