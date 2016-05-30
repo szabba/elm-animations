@@ -1,5 +1,5 @@
 {
-    "version": "1.0.0",
+    "version": "1.0.2",
     "summary": "A package for animating arbitrary values",
     "repository": "https://github.com/szabba/elm-animations.git",
     "license": "MPL2",

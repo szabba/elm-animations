@@ -20,16 +20,18 @@ module Animation
 
 {-|
 
-@docs Animation, State
+@docs Animation
 
 # Running
-@docs run, runState, isDone
+@docs State, run, runState, isDone
+
+
+# Building
+@docs interval, map, immediately, append
 
 # Sampling and querying
 @docs sample, sampleState
 
-# Building
-@docs interval, map, immediately, append
 
 -}
 
@@ -46,6 +48,10 @@ type Animation a
 
 type alias Step a =
     { now : Time, end : Time, f : Time -> a }
+
+
+
+-- RUNNING
 
 
 {-| A state is the result of running an animation for some time. An animation
@@ -92,42 +98,6 @@ run t animation =
 runState : Time -> State a -> State a
 runState dt state =
     stateMap (run dt) Done state
-
-
-
--- QUERY
-
-
-{-| Gets the current value of the animation.
-
--}
-sample : Animation a -> a
-sample animation =
-    case animation of
-        LastStep { now, f } ->
-            f now
-
-        WithPrefix { now, f } _ ->
-            f now
-
-
-{-| Like [`sample`](#sample) for animation states instead of animations. If the
-state [`isDone`](#isDone), then this is the final state the animation has
-reached.
-
--}
-sampleState : State a -> a
-sampleState state =
-    stateMap sample identity state
-
-
-{-| True when the animation is over. It can make code clearer when you want to
-do things that don't depend on the final/current value.
-
--}
-isDone : State a -> Bool
-isDone state =
-    stateMap (always False) (always True) state
 
 
 
@@ -181,6 +151,42 @@ map g animation =
 
             WithPrefix step rest ->
                 WithPrefix (mapStep step) (map g rest)
+
+
+
+-- QUERY
+
+
+{-| Gets the current value of the animation.
+
+-}
+sample : Animation a -> a
+sample animation =
+    case animation of
+        LastStep { now, f } ->
+            f now
+
+        WithPrefix { now, f } _ ->
+            f now
+
+
+{-| Like [`sample`](#sample) for animation states instead of animations. If the
+state [`isDone`](#isDone), then this is the final state the animation has
+reached.
+
+-}
+sampleState : State a -> a
+sampleState state =
+    stateMap sample identity state
+
+
+{-| True when the animation is over. It can make code clearer when you want to
+do things that don't depend on the final/current value.
+
+-}
+isDone : State a -> Bool
+isDone state =
+    stateMap (always False) (always True) state
 
 
 
