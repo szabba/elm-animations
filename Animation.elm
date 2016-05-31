@@ -9,6 +9,7 @@ module Animation
         , interval
         , append
         , map
+        , andMap
         , immediately
         , sample
         , timeLeft
@@ -22,10 +23,13 @@ module Animation
 
 {-|
 
-@docs Animation, interval, map, immediately, append
+@docs Animation, interval, immediately, append
 
 # Queries
 @docs sample, timeLeft
+
+# Combining
+@docs map, andMap
 
 # Running
 @docs State, isDone, run
@@ -123,13 +127,72 @@ append (Animation left) (Animation right) =
         |> Animation
 
 
-{-| Builds an animation with the values transformed by a function.
+{-| Builds an animation with the values transformed by a function. If you want
+to use a function with multiple arguments, you're looking for
+[`andMap`](#andMap)
 
 -}
 map : (a -> b) -> Animation a -> Animation b
 map f (Animation record) =
     { record | f = record.f >> f }
         |> Animation
+
+
+{-| Applies functions produced by one animation to values produced by another
+one. In tandem with [`map`](#map), this allows you to combine several animations
+using a multiple-parameter function.
+
+    type alias Position =
+        { x : Float, y : Float }
+
+    position : Animation Position
+    position =
+        Position `Animation.map` x `Animation.andMap` y
+
+    y : Animation Float
+    y =
+        Animation.interval pi
+        |> Animation.map cos
+
+    x : Animation Float
+    x = Animation.interval pi
+
+
+-}
+andMap : Animation (a -> b) -> Animation a -> Animation b
+andMap (Animation f) (Animation x) =
+    let
+        ( end, total ) =
+            ( f.end `max` x.end
+            , f.end - f.now `max` x.end - x.now
+            )
+
+        ext =
+            extend total >> .f
+    in
+        { now = 0
+        , end = end
+        , f = \t -> ext f t <| ext x t
+        }
+            |> Animation
+
+
+extend :
+    Time
+    -> { now : Time, end : Time, f : Time -> a }
+    -> { now : Time, end : Time, f : Time -> a }
+extend to anim =
+    { anim
+        | end = anim.now + to
+        , f =
+            \t ->
+                anim.f
+                    (if t <= anim.end then
+                        t
+                     else
+                        anim.end
+                    )
+    }
 
 
 
