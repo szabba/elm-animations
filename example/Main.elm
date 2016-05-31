@@ -3,7 +3,6 @@ module Main exposing (..)
 import Html.App as App
 import Html.Attributes as HA
 import Html.Events as HE
-import String
 import Svg as S exposing (Svg, Attribute)
 import Svg.Attributes as SA
 import Task
@@ -12,6 +11,7 @@ import AnimationFrame
 import Window
 import Ease exposing (Easing)
 import Animation exposing (Animation)
+import Button
 import Helpers
 
 
@@ -32,6 +32,7 @@ main =
 type alias Model =
     { easing : Easing
     , animation : Animation.State Float
+    , button : Animation.State (Svg Msg)
     , time : Time
     , size : Window.Size
     }
@@ -39,7 +40,11 @@ type alias Model =
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model Ease.inBack (Animation.Done 0) Time.second (Window.Size 0 0)
+    ( Model Ease.inBack
+        (Animation.Done 0)
+        (Animation.Done <| Animation.sample Button.triangleAnimation)
+        Time.second
+        (Window.Size 0 0)
     , Task.perform (\_ -> Debug.crash "window has no size?!") Resize Window.size
     )
 
@@ -63,13 +68,20 @@ update msg model =
             { model | size = size } ! []
 
         Animate dt ->
-            { model | animation = Animation.runState dt <| Debug.log "animation" model.animation } ! []
+            { model
+                | animation = Animation.runState dt <| model.animation
+                , button = Animation.runState dt <| Debug.log "triangle" model.button
+            }
+                ! []
 
         Start ->
             { model
                 | animation =
                     Animation.interval model.time
                         |> Animation.map (flip (/) model.time >> model.easing)
+                        |> Animation.Continuing
+                , button =
+                    Button.triangleAnimation
                         |> Animation.Continuing
             }
                 ! []
@@ -84,7 +96,7 @@ update msg model =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ if Animation.isDone model.animation then
+        [ if Animation.isDone model.animation && Animation.isDone model.button then
             Sub.none
           else
             AnimationFrame.diffs Animate
@@ -106,7 +118,7 @@ view model =
             "translate(" ++ toString (width // 2) ++ " " ++ toString (height // 2) ++ ")"
 
         buttonTransform =
-            "translate(0 " ++ toString (buttonShift model.size) ++ ")"
+            "translate(0 " ++ toString (buttonShift model.size) ++ ") scale(10)"
     in
         S.svg
             [ SA.version "1.1"
@@ -118,7 +130,11 @@ view model =
             , HA.style [ (,) "display" "block" ]
             ]
             [ slider model
-            , S.g [ SA.transform buttonTransform ] [ button model ]
+            , S.g
+                [ SA.transform buttonTransform
+                , HE.onClick Start
+                ]
+                [ otherButton model ]
             ]
 
 
@@ -155,6 +171,12 @@ slider model =
                 ]
                 []
             ]
+
+
+otherButton : Model -> Svg Msg
+otherButton model =
+    model.button
+        |> Animation.sampleState
 
 
 button : Model -> Svg Msg
