@@ -35,14 +35,13 @@ module Animation
 -}
 
 import Time exposing (Time)
-import Animation.Step as Step exposing (Step)
 
 
 {-| An animation describes how a value changes over a finite period of time.
 
 -}
 type Animation a
-    = Animation (Step a) (List (Step a))
+    = Animation { now : Time, end : Time, f : Time -> a }
 
 
 
@@ -64,18 +63,15 @@ type State a
 
 -}
 run : Time -> Animation a -> State a
-run t ((Animation step rest) as animation) =
+run t ((Animation record) as animation) =
     if t < 0 then
         animation |> Continuing
-    else if t < step.end - step.now then
-        { step | now = step.now + t }
-            |> flip Animation rest
+    else if t < timeLeft animation then
+        { record | now = record.now + t }
+            |> Animation
             |> Continuing
     else
-        animation
-            |> dropStep
-            |> Maybe.map (run <| t - Step.timeLeft step)
-            |> Maybe.withDefault (Done <| sample animation)
+        Done <| record.f record.end
 
 
 {-| Like [`run`](#run) but accepts an animation state instead of an animation.
@@ -107,23 +103,33 @@ For negative values you'll get the zero interval.
 interval : Time -> Animation Time
 interval t =
     { now = 0, end = t, f = identity }
-        |> flip Animation []
+        |> Animation
 
 
 {-| Glues two animations together.
 
 -}
 append : Animation a -> Animation a -> Animation a
-append (Animation step rest) (Animation rest' rest'') =
-    Animation step <| rest ++ [ rest' ] ++ rest''
+append (Animation left) (Animation right) =
+    { now = left.now
+    , end = left.end + right.end - right.now
+    , f =
+        \t ->
+            if t < left.end then
+                left.f t
+            else
+                right.f <| t - left.end + right.now
+    }
+        |> Animation
 
 
 {-| Builds an animation with the values transformed by a function.
 
 -}
 map : (a -> b) -> Animation a -> Animation b
-map f (Animation step rest) =
-    Animation (Step.map f step) <| List.map (Step.map f) rest
+map f (Animation record) =
+    { record | f = record.f >> f }
+        |> Animation
 
 
 
@@ -134,7 +140,7 @@ map f (Animation step rest) =
 
 -}
 sample : Animation a -> a
-sample (Animation { now, f } _) =
+sample (Animation { now, f }) =
     f now
 
 
@@ -161,11 +167,8 @@ isDone state =
 
 -}
 timeLeft : Animation a -> Time
-timeLeft (Animation step rest) =
-    rest
-        |> List.map Step.timeLeft
-        |> List.sum
-        |> (+) (Step.timeLeft step)
+timeLeft (Animation { now, end }) =
+    end - now
 
 
 {-| Like [`time`](#time), but for animation states instead of animations.
@@ -188,13 +191,3 @@ stateMap f g state =
 
         Done x ->
             g x
-
-
-dropStep : Animation a -> Maybe (Animation a)
-dropStep (Animation _ rest) =
-    case rest of
-        step :: rest ->
-            Just <| Animation step rest
-
-        [] ->
-            Nothing
