@@ -35,6 +35,7 @@ module Animation
 -}
 
 import Time exposing (Time)
+import Animation.Step as Step exposing (Step)
 
 
 {-| An animation describes how a value changes over a finite period of time.
@@ -42,10 +43,6 @@ import Time exposing (Time)
 -}
 type Animation a
     = Animation (Step a) (List (Step a))
-
-
-type alias Step a =
-    { now : Time, end : Time, f : Time -> a }
 
 
 
@@ -77,7 +74,7 @@ run t ((Animation step rest) as animation) =
     else
         animation
             |> dropStep
-            |> Maybe.map (run <| t - timeLeftStep step)
+            |> Maybe.map (run <| t - Step.timeLeft step)
             |> Maybe.withDefault (Done <| sample animation)
 
 
@@ -126,12 +123,7 @@ append (Animation step rest) (Animation rest' rest'') =
 -}
 map : (a -> b) -> Animation a -> Animation b
 map f (Animation step rest) =
-    Animation (mapStep f step) <| List.map (mapStep f) rest
-
-
-mapStep : (a -> b) -> Step a -> Step b
-mapStep g ({ f } as step) =
-    { step | f = f >> g }
+    Animation (Step.map f step) <| List.map (Step.map f) rest
 
 
 
@@ -171,9 +163,9 @@ isDone state =
 timeLeft : Animation a -> Time
 timeLeft (Animation step rest) =
     rest
-        |> List.map timeLeftStep
+        |> List.map Step.timeLeft
         |> List.sum
-        |> (+) (timeLeftStep step)
+        |> (+) (Step.timeLeft step)
 
 
 {-| Like [`time`](#time), but for animation states instead of animations.
@@ -182,11 +174,6 @@ timeLeft (Animation step rest) =
 timeLeftState : State a -> Time
 timeLeftState state =
     stateMap timeLeft (always 0) state
-
-
-timeLeftStep : Step a -> Time
-timeLeftStep { now, end } =
-    end - now
 
 
 
