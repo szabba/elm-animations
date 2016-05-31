@@ -12,6 +12,7 @@ import AnimationFrame
 import Window
 import Ease exposing (Easing)
 import Animation exposing (Animation)
+import Helpers
 
 
 main : Program Never
@@ -163,10 +164,8 @@ button model =
             ( negate <| radius model.size, radius model.size )
 
         points =
-            [ [ low, low ], [ high, 0 ], [ low, high ] ]
-                |> List.map (List.map toString >> List.intersperse " " >> String.concat)
-                |> List.intersperse ", "
-                |> String.concat
+            [ (,) low low, (,) high 0, (,) low high ]
+                |> Helpers.pointsToString
     in
         S.polygon
             [ HE.onClick
