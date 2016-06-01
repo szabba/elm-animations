@@ -1,9 +1,11 @@
-module Button exposing (Model, init, view)
+module Button exposing (Model, init, subscriptions, Msg, update, view)
 
+import Html.Events as HE
 import String
 import Svg as S exposing (Svg)
 import Svg.Attributes as SA
 import Time exposing (Time)
+import AnimationFrame
 import Animation exposing (Animation)
 import Helpers exposing (toDegrees)
 
@@ -12,12 +14,22 @@ import Helpers exposing (toDegrees)
 
 
 type alias Model =
-    Animation.State Params
+    { animation : Animation.State Params
+    , state : State
+    }
+
+
+type State
+    = Play
+    | Reset
+    | AnimatingTo State
 
 
 init : Model
 init =
-    Animation.Continuing animation
+    { animation = Animation.Done <| Animation.sample animation
+    , state = Play
+    }
 
 
 type alias Params =
@@ -27,6 +39,76 @@ type alias Params =
     , s : Float
     , d : Float
     }
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    if Animation.isDone model.animation then
+        Sub.none
+    else
+        AnimationFrame.diffs (Animate >> Debug.log "animating button")
+
+
+
+-- UPDATE
+
+
+type Msg
+    = Animate Time
+    | Clicked
+
+
+update : Msg -> Model -> Model
+update msg model =
+    case msg of
+        Animate dt ->
+            model |> animate (dt |> Debug.log "animating button")
+
+        Clicked ->
+            model |> onClick
+
+
+animate : Time -> Model -> Model
+animate dt model =
+    let
+        animation =
+            model.animation |> Animation.runState dt
+
+        state =
+            if Animation.isDone animation then
+                case model.state of
+                    AnimatingTo nextState ->
+                        nextState
+
+                    _ ->
+                        model.state
+            else
+                model.state
+    in
+        { animation = animation
+        , state = state
+        }
+
+
+onClick : Model -> Model
+onClick model =
+    case model.state of
+        AnimatingTo _ ->
+            model
+
+        Play ->
+            { animation = Animation.Continuing animation
+            , state = AnimatingTo Reset
+            }
+
+        Reset ->
+            { animation = Animation.Continuing animation
+            , state = Play
+            }
+
+
+
+-- VIEW
 
 
 type alias Triangle a =
@@ -46,18 +128,11 @@ type alias Tail a =
     }
 
 
-
--- VIEW
-
-
-view : Model -> Svg msg
-view =
-    Animation.sampleState
-        >> (\params ->
-                [ viewTriangle, viewTail ]
-                    |> List.map ((|>) params)
-                    |> S.g []
-           )
+view : Model -> Svg Msg
+view model =
+    [ viewTriangle, viewTail ]
+        |> List.map ((|>) (Animation.sampleState model.animation))
+        |> S.g [ HE.onClick Clicked ]
 
 
 animation : Animation Params

@@ -41,7 +41,7 @@ init : ( Model, Cmd Msg )
 init =
     ( Model Ease.inBack
         (Animation.Done 0)
-        (Animation.Done <| Animation.sampleState Button.init)
+        Button.init
         Time.second
         (Window.Size 0 0)
     , Task.perform (\_ -> Debug.crash "window has no size?!") Resize Window.size
@@ -57,7 +57,7 @@ type Msg
     | Animate Time
     | Start
     | Reset
-    | NoOp
+    | ButtonMsg Button.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -67,11 +67,7 @@ update msg model =
             { model | size = size } ! []
 
         Animate dt ->
-            { model
-                | animation = Animation.runState dt <| model.animation
-                , button = Animation.runState dt <| Debug.log "triangle" model.button
-            }
-                ! []
+            { model | animation = Animation.runState dt <| model.animation } ! []
 
         Start ->
             { model
@@ -79,25 +75,24 @@ update msg model =
                     Animation.interval model.time
                         |> Animation.map (flip (/) model.time >> model.easing)
                         |> Animation.Continuing
-                , button =
-                    Button.init
             }
                 ! []
 
         Reset ->
             { model | animation = Animation.Done 0 } ! []
 
-        NoOp ->
-            model ! []
+        ButtonMsg msg ->
+            { model | button = Button.update msg model.button } ! []
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ if Animation.isDone model.animation && Animation.isDone model.button then
+        [ if Animation.isDone model.animation then
             Sub.none
           else
             AnimationFrame.diffs Animate
+        , Sub.map ButtonMsg <| Button.subscriptions model.button
         , Window.resizes Resize
         ]
 
@@ -121,9 +116,9 @@ view model =
         S.svg
             [ SA.version "1.1"
             , SA.baseProfile "full"
+            , HA.attribute "xmlns" "http://www.w3.org/2000/svg"
             , SA.width <| toString <| width
             , SA.height <| toString <| height
-            , HA.attribute "xmlns" "http://www.w3.org/2000/svg"
             , SA.transform transform
             , HA.style [ (,) "display" "block" ]
             ]
@@ -132,7 +127,7 @@ view model =
                 [ SA.transform buttonTransform
                 , HE.onClick Start
                 ]
-                [ Button.view model.button ]
+                [ model.button |> Button.view |> App.map ButtonMsg ]
             ]
 
 
