@@ -2,7 +2,6 @@ module Main exposing (..)
 
 import Html.App as App
 import Html.Attributes as HA
-import Html.Events as HE
 import Svg as S exposing (Svg, Attribute)
 import Svg.Attributes as SA
 import Task
@@ -31,7 +30,7 @@ main =
 type alias Model =
     { easing : Easing
     , animation : Animation.State Float
-    , button : Button.Model
+    , button : Button.Model Msg
     , time : Time
     , size : Window.Size
     }
@@ -41,7 +40,7 @@ init : ( Model, Cmd Msg )
 init =
     ( Model Ease.inBack
         (Animation.Done 0)
-        Button.init
+        (Button.init { onPlay = Start, onReset = Reset })
         Time.second
         (Window.Size 0 0)
     , Task.perform (\_ -> Debug.crash "window has no size?!") Resize Window.size
@@ -58,6 +57,7 @@ type Msg
     | Start
     | Reset
     | ButtonMsg Button.Msg
+    | NoOp
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -79,10 +79,39 @@ update msg model =
                 ! []
 
         Reset ->
-            { model | animation = Animation.Done 0 } ! []
+            { model
+                | animation =
+                    model.time
+                        |> Animation.interval
+                        |> Animation.map (flip (/) model.time >> Ease.reverse Ease.linear)
+                        |> Animation.Continuing
+            }
+                ! []
 
         ButtonMsg msg ->
-            { model | button = Button.update msg model.button } ! []
+            let
+                ( newButton, event ) =
+                    model.button |> Button.update msg
+            in
+                { model | button = newButton }
+                    |> onButtonEvent event
+
+        NoOp ->
+            model ! []
+
+
+onButtonEvent : Button.Event -> Model -> ( Model, Cmd Msg )
+onButtonEvent evt model =
+    flip update model
+        <| case evt of
+            Button.Play ->
+                Start
+
+            Button.Reset ->
+                Reset
+
+            Button.NoEvent ->
+                NoOp
 
 
 subscriptions : Model -> Sub Msg
@@ -125,7 +154,6 @@ view model =
             [ slider model
             , S.g
                 [ SA.transform buttonTransform
-                , HE.onClick Start
                 ]
                 [ model.button |> Button.view |> App.map ButtonMsg ]
             ]

@@ -1,4 +1,4 @@
-module Button exposing (Model, init, subscriptions, Msg, update, view)
+module Button exposing (Model, init, subscriptions, Msg, Event(..), update, view)
 
 import Html.Events as HE
 import String
@@ -13,22 +13,26 @@ import Helpers exposing (toDegrees)
 -- MODEL
 
 
-type alias Model =
+type alias Model msg =
     { animation : Animation.State Params
     , state : State
+    , onPlay : msg
+    , onReset : msg
     }
 
 
 type State
-    = Play
-    | Reset
+    = SendPlayNext
+    | SendResetNext
     | AnimatingTo State
 
 
-init : Model
-init =
+init : { onPlay : msg, onReset : msg } -> Model msg
+init { onPlay, onReset } =
     { animation = Animation.Done <| Animation.sample animation
-    , state = Play
+    , state = SendPlayNext
+    , onPlay = onPlay
+    , onReset = onReset
     }
 
 
@@ -41,7 +45,7 @@ type alias Params =
     }
 
 
-subscriptions : Model -> Sub Msg
+subscriptions : Model msg -> Sub Msg
 subscriptions model =
     if Animation.isDone model.animation then
         Sub.none
@@ -59,20 +63,26 @@ type Msg
     | NoOp
 
 
-update : Msg -> Model -> Model
+type Event
+    = Play
+    | Reset
+    | NoEvent
+
+
+update : Msg -> Model msg -> ( Model msg, Event )
 update msg model =
     case msg of
         Animate dt ->
-            model |> animate dt
+            ( model |> animate dt, NoEvent )
 
         Clicked ->
             model |> onClick
 
         NoOp ->
-            model
+            ( model, NoEvent )
 
 
-animate : Time -> Model -> Model
+animate : Time -> Model msg -> Model msg
 animate dt model =
     let
         animation =
@@ -89,30 +99,51 @@ animate dt model =
             else
                 model.state
     in
-        { animation = animation
-        , state = state
+        { model
+            | animation = animation
+            , state = state
         }
 
 
-onClick : Model -> Model
+onClick : Model msg -> ( Model msg, Event )
 onClick model =
     case model.state of
         AnimatingTo _ ->
-            model
+            ( model, NoEvent )
 
-        Play ->
-            { animation = Animation.Continuing animation
-            , state = AnimatingTo Reset
-            }
+        SendPlayNext ->
+            ( { model
+                | animation = Animation.Continuing animation
+                , state = AnimatingTo SendResetNext
+              }
+            , Play
+            )
 
-        Reset ->
-            { animation = Animation.Continuing reverseAnimation
-            , state = AnimatingTo Play
-            }
+        SendResetNext ->
+            ( { model
+                | animation = Animation.Continuing reverseAnimation
+                , state = AnimatingTo SendPlayNext
+              }
+            , Reset
+            )
 
 
 
 -- VIEW
+
+
+view : Model msg -> Svg Msg
+view model =
+    let
+        msg =
+            if Animation.isDone model.animation then
+                Clicked
+            else
+                NoOp
+    in
+        [ viewTriangle, viewTail ]
+            |> List.map ((|>) (Animation.sampleState model.animation))
+            |> S.g [ HE.onClick msg ]
 
 
 type alias Triangle a =
@@ -130,20 +161,6 @@ type alias Tail a =
         , alpha : Float
         , gamma : Float
     }
-
-
-view : Model -> Svg Msg
-view model =
-    let
-        msg =
-            if Animation.isDone model.animation then
-                Clicked
-            else
-                NoOp
-    in
-        [ viewTriangle, viewTail ]
-            |> List.map ((|>) (Animation.sampleState model.animation))
-            |> S.g [ HE.onClick msg ]
 
 
 animation : Animation Params
