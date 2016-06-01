@@ -46,7 +46,7 @@ subscriptions model =
     if Animation.isDone model.animation then
         Sub.none
     else
-        AnimationFrame.diffs (Animate >> Debug.log "animating button")
+        AnimationFrame.diffs Animate
 
 
 
@@ -102,8 +102,8 @@ onClick model =
             }
 
         Reset ->
-            { animation = Animation.Continuing animation
-            , state = Play
+            { animation = Animation.Continuing reverseAnimation
+            , state = AnimatingTo Play
             }
 
 
@@ -151,6 +151,29 @@ animation =
                     , d = 0.75 * (-1 + t / dt)
                     , s = -0.5 * t / dt + 1
                     }
+                )
+
+
+reverseAnimation : Animation Params
+reverseAnimation =
+    let
+        dt =
+            Time.second
+    in
+        dt
+            |> Animation.interval
+            |> Animation.map
+                (\t ->
+                    let
+                        phase =
+                            (1 - t / dt)
+                    in
+                        { alpha = phase * (pi - pi / 6 + pi / 2)
+                        , gamma = phase * (8 / 5 * pi)
+                        , r = phase
+                        , d = 0.75 * (-1 + phase)
+                        , s = -0.5 * phase + 1
+                        }
                 )
 
 
