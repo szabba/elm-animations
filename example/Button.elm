@@ -56,16 +56,20 @@ subscriptions model =
 type Msg
     = Animate Time
     | Clicked
+    | NoOp
 
 
 update : Msg -> Model -> Model
 update msg model =
     case msg of
         Animate dt ->
-            model |> animate (dt |> Debug.log "animating button")
+            model |> animate dt
 
         Clicked ->
             model |> onClick
+
+        NoOp ->
+            model
 
 
 animate : Time -> Model -> Model
@@ -130,9 +134,16 @@ type alias Tail a =
 
 view : Model -> Svg Msg
 view model =
-    [ viewTriangle, viewTail ]
-        |> List.map ((|>) (Animation.sampleState model.animation))
-        |> S.g [ HE.onClick Clicked ]
+    let
+        msg =
+            if Animation.isDone model.animation then
+                Clicked
+            else
+                NoOp
+    in
+        [ viewTriangle, viewTail ]
+            |> List.map ((|>) (Animation.sampleState model.animation))
+            |> S.g [ HE.onClick msg ]
 
 
 animation : Animation Params
