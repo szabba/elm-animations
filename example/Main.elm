@@ -12,7 +12,6 @@ import Window
 import Ease exposing (Easing)
 import Animation exposing (Animation)
 import Button
-import Helpers
 
 
 main : Program Never
@@ -32,7 +31,7 @@ main =
 type alias Model =
     { easing : Easing
     , animation : Animation.State Float
-    , button : Animation.State (Svg Msg)
+    , button : Button.Model
     , time : Time
     , size : Window.Size
     }
@@ -42,7 +41,7 @@ init : ( Model, Cmd Msg )
 init =
     ( Model Ease.inBack
         (Animation.Done 0)
-        (Animation.Done <| Animation.sample Button.triangleAnimation)
+        (Animation.Done <| Animation.sampleState Button.init)
         Time.second
         (Window.Size 0 0)
     , Task.perform (\_ -> Debug.crash "window has no size?!") Resize Window.size
@@ -81,8 +80,7 @@ update msg model =
                         |> Animation.map (flip (/) model.time >> model.easing)
                         |> Animation.Continuing
                 , button =
-                    Button.triangleAnimation
-                        |> Animation.Continuing
+                    Button.init
             }
                 ! []
 
@@ -134,7 +132,7 @@ view model =
                 [ SA.transform buttonTransform
                 , HE.onClick Start
                 ]
-                [ otherButton model ]
+                [ Button.view model.button ]
             ]
 
 
@@ -171,34 +169,6 @@ slider model =
                 ]
                 []
             ]
-
-
-otherButton : Model -> Svg Msg
-otherButton model =
-    model.button
-        |> Animation.sampleState
-
-
-button : Model -> Svg Msg
-button model =
-    let
-        ( low, high ) =
-            ( negate <| radius model.size, radius model.size )
-
-        points =
-            [ (,) low low, (,) high 0, (,) low high ]
-                |> Helpers.pointsToString
-    in
-        S.polygon
-            [ HE.onClick
-                <| if Animation.isDone model.animation then
-                    Start
-                   else
-                    NoOp
-            , SA.points points
-            , fill
-            ]
-            []
 
 
 buttonShift : Window.Size -> Int
