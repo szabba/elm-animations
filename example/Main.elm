@@ -181,7 +181,7 @@ slider model =
                 , SA.x2 <| toString rightmost
                 , SA.y2 "0"
                 , SA.stroke "#000000"
-                , SA.strokeWidth "1"
+                , SA.strokeWidth "0.5"
                 ]
                 []
             , S.circle
@@ -205,8 +205,8 @@ sliderWidth { width } =
 
 
 radius : Window.Size -> Int
-radius { width, height } =
-    width `min` height |> flip (//) 40
+radius _ =
+    10
 
 
 fill : Attribute Msg
