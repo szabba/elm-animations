@@ -18,6 +18,7 @@ type alias Model msg =
     , state : State
     , onPlay : msg
     , onReset : msg
+    , fillColor : String
     }
 
 
@@ -27,12 +28,13 @@ type State
     | AnimatingTo State
 
 
-init : { onPlay : msg, onReset : msg } -> Model msg
-init { onPlay, onReset } =
+init : { fillColor : String, onPlay : msg, onReset : msg } -> Model msg
+init { fillColor, onPlay, onReset } =
     { animation = Animation.Done <| Animation.sample animation
     , state = SendPlayNext
     , onPlay = onPlay
     , onReset = onReset
+    , fillColor = fillColor
     }
 
 
@@ -140,9 +142,12 @@ view model =
                 Clicked
             else
                 NoOp
+
+        params =
+            Animation.sampleState model.animation
     in
         [ viewTriangle, viewTail ]
-            |> List.map ((|>) (Animation.sampleState model.animation))
+            |> List.map (\viewF -> viewF model params)
             |> S.g [ HE.onClick msg ]
 
 
@@ -205,8 +210,8 @@ reverseAnimation =
                 )
 
 
-viewTriangle : Triangle a -> Svg msg
-viewTriangle { alpha, r, s, d } =
+viewTriangle : { b | fillColor : String } -> Triangle a -> Svg msg
+viewTriangle { fillColor } { alpha, r, s, d } =
     let
         transform =
             [ "rotate(" ++ (toString <| toDegrees -alpha) ++ ")"
@@ -222,17 +227,17 @@ viewTriangle { alpha, r, s, d } =
                 |> Helpers.pointsToString
     in
         S.g [ SA.transform transform ]
-            [ S.polygon [ SA.points points ] [] ]
+            [ S.polygon [ SA.points points, SA.fill fillColor ] [] ]
 
 
-viewTail : Tail a -> Svg msg
-viewTail ({ r, alpha, gamma } as tail) =
+viewTail : { b | fillColor : String } -> Tail a -> Svg msg
+viewTail { fillColor } ({ r, alpha, gamma } as tail) =
     S.g
         [ SA.transform <| "rotate(" ++ (toString <| (+) 89 << toDegrees <| -alpha) ++ ")"
         ]
         [ S.path
             [ SA.d <| tailPath tail
-            , SA.stroke "#000000"
+            , SA.stroke fillColor
             , SA.strokeWidth "0.3"
             , SA.fillOpacity "0"
             ]

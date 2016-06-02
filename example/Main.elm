@@ -47,6 +47,7 @@ init =
         (Button.init
             { onPlay = Slider.Start |> SliderMsg
             , onReset = Slider.Reset |> SliderMsg
+            , fillColor = fillColor
             }
         )
         (Window.Size 0 0)
