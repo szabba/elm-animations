@@ -14,8 +14,7 @@ import Helpers exposing (toDegrees)
 
 
 type alias Model msg =
-    { animation : Animation.State Params
-    , state : State
+    { state : State
     , onPlay : msg
     , onReset : msg
     , fillColor : String
@@ -23,15 +22,14 @@ type alias Model msg =
 
 
 type State
-    = SendPlayNext
-    | SendResetNext
-    | AnimatingTo State
+    = Play
+    | Reset
+    | AnimatingTo State (Animation.State Params)
 
 
 init : { fillColor : String, onPlay : msg, onReset : msg } -> Model msg
 init { fillColor, onPlay, onReset } =
-    { animation = Animation.Done <| Animation.sample animation
-    , state = SendPlayNext
+    { state = Play
     , onPlay = onPlay
     , onReset = onReset
     , fillColor = fillColor
@@ -49,10 +47,12 @@ type alias Params =
 
 subscriptions : Model msg -> Sub Msg
 subscriptions model =
-    if Animation.isDone model.animation then
-        Sub.none
-    else
-        AnimationFrame.diffs Animate
+    case model.state of
+        AnimatingTo _ _ ->
+            AnimationFrame.diffs Animate
+
+        _ ->
+            Sub.none
 
 
 
@@ -80,45 +80,43 @@ update msg model =
 
 animate : Time -> Model msg -> Model msg
 animate dt model =
-    let
-        animation =
-            model.animation |> Animation.runState dt
+    case model.state of
+        AnimatingTo nextState animation ->
+            let
+                updatedAnimation =
+                    animation |> Animation.runState dt
+            in
+                if updatedAnimation |> Animation.isDone then
+                    { model | state = nextState }
+                else
+                    { model | state = AnimatingTo nextState updatedAnimation }
 
-        state =
-            if Animation.isDone animation then
-                case model.state of
-                    AnimatingTo nextState ->
-                        nextState
-
-                    _ ->
-                        model.state
-            else
-                model.state
-    in
-        { model
-            | animation = animation
-            , state = state
-        }
+        _ ->
+            model
 
 
 onClick : Model msg -> ( Model msg, Maybe msg )
 onClick model =
     case model.state of
-        AnimatingTo _ ->
+        AnimatingTo _ _ ->
             ( model, Nothing )
 
-        SendPlayNext ->
+        Play ->
             ( { model
-                | animation = Animation.Continuing animation
-                , state = AnimatingTo SendResetNext
+                | state =
+                    animation
+                        |> Animation.Continuing
+                        |> AnimatingTo Reset
               }
             , Just model.onPlay
             )
 
-        SendResetNext ->
+        Reset ->
             ( { model
-                | animation = Animation.Continuing reverseAnimation
-                , state = AnimatingTo SendPlayNext
+                | state =
+                    animation
+                        |> Animation.Continuing
+                        |> AnimatingTo Play
               }
             , Just model.onReset
             )
@@ -131,14 +129,16 @@ onClick model =
 view : Model msg -> Svg Msg
 view model =
     let
-        msg =
-            if Animation.isDone model.animation then
-                Clicked
-            else
-                NoOp
+        ( msg, params ) =
+            case model.state of
+                AnimatingTo _ animation ->
+                    ( NoOp, Animation.sampleState animation )
 
-        params =
-            Animation.sampleState model.animation
+                Play ->
+                    ( Clicked, Animation.sample animation )
+
+                Reset ->
+                    ( Clicked, Animation.sample reverseAnimation )
     in
         [ viewTriangle, viewTail ]
             |> List.map (\viewF -> viewF model params)
