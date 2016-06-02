@@ -148,4 +148,4 @@ view model =
 
 fillColor : String
 fillColor =
-    "#DD0000"
+    "#DD7700"
