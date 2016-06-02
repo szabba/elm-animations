@@ -1,4 +1,4 @@
-module Button exposing (Model, init, subscriptions, Msg, Event(..), update, view)
+module Button exposing (Model, init, subscriptions, Msg, update, view)
 
 import Html.Events as HE
 import String
@@ -65,23 +65,17 @@ type Msg
     | NoOp
 
 
-type Event
-    = Play
-    | Reset
-    | NoEvent
-
-
-update : Msg -> Model msg -> ( Model msg, Event )
+update : Msg -> Model msg -> ( Model msg, Maybe msg )
 update msg model =
     case msg of
         Animate dt ->
-            ( model |> animate dt, NoEvent )
+            ( model |> animate dt, Nothing )
 
         Clicked ->
             model |> onClick
 
         NoOp ->
-            ( model, NoEvent )
+            ( model, Nothing )
 
 
 animate : Time -> Model msg -> Model msg
@@ -107,18 +101,18 @@ animate dt model =
         }
 
 
-onClick : Model msg -> ( Model msg, Event )
+onClick : Model msg -> ( Model msg, Maybe msg )
 onClick model =
     case model.state of
         AnimatingTo _ ->
-            ( model, NoEvent )
+            ( model, Nothing )
 
         SendPlayNext ->
             ( { model
                 | animation = Animation.Continuing animation
                 , state = AnimatingTo SendResetNext
               }
-            , Play
+            , Just model.onPlay
             )
 
         SendResetNext ->
@@ -126,7 +120,7 @@ onClick model =
                 | animation = Animation.Continuing reverseAnimation
                 , state = AnimatingTo SendPlayNext
               }
-            , Reset
+            , Just model.onReset
             )
 
 

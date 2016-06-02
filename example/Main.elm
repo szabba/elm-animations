@@ -94,24 +94,10 @@ update msg model =
                     model.button |> Button.update msg
             in
                 { model | button = newButton }
-                    |> onButtonEvent event
+                    |> update (event |> Maybe.withDefault NoOp)
 
         NoOp ->
             model ! []
-
-
-onButtonEvent : Button.Event -> Model -> ( Model, Cmd Msg )
-onButtonEvent evt model =
-    flip update model
-        <| case evt of
-            Button.Play ->
-                SliderMsg Slider.Start
-
-            Button.Reset ->
-                SliderMsg Slider.Reset
-
-            Button.NoEvent ->
-                NoOp
 
 
 
