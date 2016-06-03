@@ -160,21 +160,17 @@ type alias Tail a =
 
 animation : Animation Params
 animation =
-    let
-        dt =
-            Time.second
-    in
-        dt
-            |> Animation.interval
-            |> Animation.map
-                (\t ->
-                    { alpha = t * (pi - pi / 6 + pi / 2)
-                    , gamma = t * (8 / 5 * pi)
-                    , r = t
-                    , d = 0.75 * (-1 + t)
-                    , s = -0.5 * t + 1
-                    }
-                )
+    Time.second
+        |> Animation.interval
+        |> Animation.map
+            (\t ->
+                { alpha = t * (pi - pi / 6 + pi / 2)
+                , gamma = t * (8 / 5 * pi)
+                , r = t
+                , d = 0.75 * (-1 + t)
+                , s = -0.5 * t + 1
+                }
+            )
 
 
 viewTriangle : { b | fillColor : String } -> Triangle a -> Svg msg
