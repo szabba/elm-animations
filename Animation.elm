@@ -6,35 +6,37 @@
 module Animation
     exposing
         ( Animation
-        , interval
-        , append
-        , map
-        , andMap
+        , run
+        , animate
         , immediately
+        , interval
+        , time
         , sample
         , timeLeft
-        , State(..)
         , isDone
-        , run
-        , runState
-        , sampleState
-        , timeLeftState
+        , reverse
+        , reset
+        , append
+        , continue
+        , map
+        , andMap
         )
 
 {-|
 
-@docs Animation, interval, immediately, append
+@docs Animation, run, animate
+
+# Building
+@docs immediately, interval, time
 
 # Queries
-@docs sample, timeLeft
+@docs sample, timeLeft, isDone
+
+# Transforms
+@docs reverse, reset
 
 # Combining
-@docs map, andMap
-
-# Running
-@docs State, isDone, run
-@docs runState, sampleState, timeLeftState
-
+@docs append, continue, map, andMap
 
 -}
 
@@ -52,38 +54,33 @@ type Animation a
 -- RUNNING
 
 
-{-| A state is the result of running an animation for some time. An animation
-ends eventually so we need a case for it's final state. It can also not be done
-after the time we've run it for - then we'll just keep it going next time we get
-to.
+{-| Runs an animation for some time. If you need to know when the animation
+"ends early", leaving time to spare, consider using [`animate`](#animate)
+instead.
 
 -}
-type State a
-    = Done a
-    | Continuing (Animation a)
-
-
-{-| Runs an animation for some time and returns a state.
-
--}
-run : Time -> Animation a -> State a
-run t ((Animation record) as animation) =
+run : Time -> Animation a -> Animation a
+run t ((Animation { now, end, f }) as animation) =
     if t < 0 then
-        animation |> Continuing
+        animation
     else if t < timeLeft animation then
-        { record | now = record.now + t }
+        { now = now + t, end = end, f = f }
             |> Animation
-            |> Continuing
     else
-        Done <| record.f record.end
+        { now = end, end = end, f = f }
+            |> Animation
 
 
-{-| Like [`run`](#run) but accepts an animation state instead of an animation.
+{-| Like [`run`](#run), but it also includes the amount of time *not* used up by
+the animation.
 
 -}
-runState : Time -> State a -> State a
-runState dt state =
-    stateMap (run dt) Done state
+animate : Time -> Animation a -> ( Animation a, Time )
+animate t animation =
+    if t < timeLeft animation then
+        ( run t animation, 0 )
+    else
+        ( run t animation, t - timeLeft animation )
 
 
 
@@ -98,16 +95,28 @@ immediately value =
     0 |> interval |> map (always value)
 
 
-{-| Builds an animation spanning from zero to the time specified, and whose
-value is the time that's passed since it's start.
+{-| Runs linearily from 0 to 1 over the time specified.
 
 For negative values you'll get the zero interval.
 
 -}
-interval : Time -> Animation Time
+interval : Time -> Animation Float
 interval t =
-    { now = 0, end = t, f = identity }
-        |> Animation
+    if t < 0 then
+        immediately 0
+    else
+        { now = 0, end = t, f = flip (/) t }
+            |> Animation
+
+
+{-| Runs linearily from 0 to the time specified over the time specified.
+
+For negative values you'll get the zero interval.
+
+-}
+time : Time -> Animation Time
+time t =
+    t |> interval |> map ((*) t)
 
 
 {-| Glues two animations together.
@@ -195,6 +204,54 @@ extend to anim =
     }
 
 
+{-| Reverses the arrow of time in the animation.
+
+-}
+reverse : Animation a -> Animation a
+reverse (Animation { now, end, f }) =
+    { now = end - now
+    , end = end
+    , f = \t -> f (end - t)
+    }
+        |> Animation
+
+
+{-| Moves the animation back to it's starting point - it's state before it
+consumed any time.
+
+-}
+reset : Animation a -> Animation a
+reset (Animation { end, f }) =
+    { now = 0
+    , end = end
+    , f = f
+    }
+        |> Animation
+
+
+{-| Glues on a new period of time to an animation.
+
+    2
+        |> Animation.immediately
+        |> Animation.continue (2 * Time.second) (\x t -> x + 2 * t)
+
+-}
+continue : Time -> (a -> Float -> a) -> Animation a -> Animation a
+continue t startWith prefix =
+    let
+        suffix =
+            t
+                |> interval
+                |> map
+                    (prefix
+                        |> run (timeLeft prefix)
+                        |> sample
+                        |> startWith
+                    )
+    in
+        prefix `append` suffix
+
+
 
 -- QUERY
 
@@ -207,23 +264,12 @@ sample (Animation { now, f }) =
     f now
 
 
-{-| Like [`sample`](#sample) for animation states instead of animations. If the
-state [`isDone`](#isDone), then this is the final state the animation has
-reached.
+{-| True when the animation is over.
 
 -}
-sampleState : State a -> a
-sampleState state =
-    stateMap sample identity state
-
-
-{-| True when the animation is over. It can make code clearer when you want to
-do things that don't depend on the final/current value.
-
--}
-isDone : State a -> Bool
-isDone state =
-    stateMap (always False) (always True) state
+isDone : Animation a -> Bool
+isDone (Animation { now, end }) =
+    now == end
 
 
 {-| The time left until the animation ends.
@@ -232,25 +278,3 @@ isDone state =
 timeLeft : Animation a -> Time
 timeLeft (Animation { now, end }) =
     end - now
-
-
-{-| Like [`time`](#time), but for animation states instead of animations.
-
--}
-timeLeftState : State a -> Time
-timeLeftState state =
-    stateMap timeLeft (always 0) state
-
-
-
--- HELPERS
-
-
-stateMap : (Animation a -> b) -> (a -> b) -> State a -> b
-stateMap f g state =
-    case state of
-        Continuing anim ->
-            f anim
-
-        Done x ->
-            g x

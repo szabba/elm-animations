@@ -5,14 +5,14 @@ import Svg as S exposing (Svg)
 import Svg.Attributes as SA
 import Time exposing (Time)
 import Ease exposing (Easing)
-import Animation
+import Animation exposing (Animation)
 
 
 -- MODEL
 
 
 type alias Model =
-    { animation : Animation.State Float
+    { animation : Animation Float
     , easing : Easing
     , time : Time
     , width : Int
@@ -51,9 +51,9 @@ type Msg
 
 update : Msg -> Model -> Model
 update msg model =
-    case msg |> Debug.log "slider msg" of
+    case msg of
         Animate dt ->
-            { model | animation = Animation.runState dt model.animation }
+            { model | animation = Animation.run dt model.animation }
 
         Start ->
             { model | animation = animation model.time model.easing }
@@ -73,7 +73,7 @@ view model =
             ( model.width // -2, model.width // 2 )
 
         progress =
-            Animation.sampleState model.animation
+            Animation.sample model.animation
 
         position =
             leftmost + round (progress * toFloat (rightmost - leftmost))
@@ -98,14 +98,13 @@ view model =
             ]
 
 
-animation : Time -> Easing -> Animation.State Float
+animation : Time -> Easing -> Animation Float
 animation t easing =
     t
         |> Animation.interval
-        |> Animation.map (flip (/) t >> easing)
-        |> Animation.Continuing
+        |> Animation.map easing
 
 
-zeroState : Animation.State Float
+zeroState : Animation Float
 zeroState =
-    Animation.Done 0
+    Animation.immediately 0

@@ -24,7 +24,7 @@ type alias Model msg =
 type State
     = Play
     | Reset
-    | AnimatingTo State (Animation.State Params)
+    | AnimatingTo State (Animation Params)
 
 
 init : { fillColor : String, onPlay : msg, onReset : msg } -> Model msg
@@ -84,7 +84,7 @@ animate dt model =
         AnimatingTo nextState animation ->
             let
                 updatedAnimation =
-                    animation |> Animation.runState dt
+                    animation |> Animation.run dt
             in
                 if updatedAnimation |> Animation.isDone then
                     { model | state = nextState }
@@ -102,12 +102,7 @@ onClick model =
             ( model, Nothing )
 
         Play ->
-            ( { model
-                | state =
-                    animation
-                        |> Animation.Continuing
-                        |> AnimatingTo Reset
-              }
+            ( { model | state = animation |> AnimatingTo Reset }
             , Just model.onPlay
             )
 
@@ -115,7 +110,8 @@ onClick model =
             ( { model
                 | state =
                     animation
-                        |> Animation.Continuing
+                        |> Animation.reverse
+                        |> Animation.reset
                         |> AnimatingTo Play
               }
             , Just model.onReset
@@ -131,14 +127,14 @@ view model =
     let
         ( msg, params ) =
             case model.state of
-                AnimatingTo _ animation ->
-                    ( NoOp, Animation.sampleState animation )
+                AnimatingTo _ runningAnimation ->
+                    ( NoOp, runningAnimation |> Animation.sample )
 
                 Play ->
-                    ( Clicked, Animation.sample animation )
+                    ( Clicked, animation |> Animation.sample )
 
                 Reset ->
-                    ( Clicked, Animation.sample reverseAnimation )
+                    ( Clicked, animation |> Animation.reverse |> Animation.reset |> Animation.sample )
     in
         [ viewTriangle, viewTail ]
             |> List.map (\viewF -> viewF model params)
@@ -172,35 +168,12 @@ animation =
             |> Animation.interval
             |> Animation.map
                 (\t ->
-                    { alpha = t / dt * (pi - pi / 6 + pi / 2)
-                    , gamma = t / dt * (8 / 5 * pi)
-                    , r = t / dt
-                    , d = 0.75 * (-1 + t / dt)
-                    , s = -0.5 * t / dt + 1
+                    { alpha = t * (pi - pi / 6 + pi / 2)
+                    , gamma = t * (8 / 5 * pi)
+                    , r = t
+                    , d = 0.75 * (-1 + t)
+                    , s = -0.5 * t + 1
                     }
-                )
-
-
-reverseAnimation : Animation Params
-reverseAnimation =
-    let
-        dt =
-            Time.second
-    in
-        dt
-            |> Animation.interval
-            |> Animation.map
-                (\t ->
-                    let
-                        phase =
-                            (1 - t / dt)
-                    in
-                        { alpha = phase * (pi - pi / 6 + pi / 2)
-                        , gamma = phase * (8 / 5 * pi)
-                        , r = phase
-                        , d = 0.75 * (-1 + phase)
-                        , s = -0.5 * phase + 1
-                        }
                 )
 
 
