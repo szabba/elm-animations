@@ -43,12 +43,7 @@ update : Msg -> Model -> Model
 update msg model =
     case msg of
         Start ->
-            { model
-                | progress =
-                    model.time
-                        |> Animation.interval
-                        |> Animation.map model.easing
-            }
+            { model | progress = model.time |> Animation.interval }
 
         Reset ->
             { model | progress = Animation.immediately 0 }
