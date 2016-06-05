@@ -1,6 +1,5 @@
-module Plot exposing (Model, init, subscriptions, Msg(Start, Reset), update, Style, view)
+module Plot exposing (Model, init, needsAnimating, Msg(..), update, Style, view)
 
-import AnimationFrame
 import Svg as S exposing (Svg)
 import Svg.Attributes as SA
 import Time exposing (Time)
@@ -25,12 +24,9 @@ init =
     Model <| Animation.immediately 0
 
 
-subscriptions : Model -> Sub Msg
-subscriptions { progress } =
-    if Animation.isDone progress then
-        Sub.none
-    else
-        AnimationFrame.diffs Animate
+needsAnimating : Model -> Bool
+needsAnimating =
+    not << Animation.isDone << .progress
 
 
 
@@ -139,7 +135,6 @@ points { density } { easing, progress } =
                 |> flip List.repeat step
                 |> List.scanl (+) 0
                 |> List.filter ((>=) <| Animation.sample progress)
-                |> Debug.log "xs"
     in
         xs
             |> List.map (\x -> ( x, negate <| easing x ))

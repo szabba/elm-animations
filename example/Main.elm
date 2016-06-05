@@ -1,5 +1,6 @@
 module Main exposing (..)
 
+import AnimationFrame
 import Html.App as App
 import Html.Attributes as HA
 import Svg as S exposing (Svg, Attribute)
@@ -10,7 +11,6 @@ import Window
 import Ease exposing (Easing)
 import Button
 import Plot
-import Slider
 
 
 main : Program Never
@@ -28,8 +28,7 @@ main =
 
 
 type alias Model =
-    { slider : Slider.Model
-    , plot : Plot.Model
+    { plot : Plot.Model
     , button : Button.Model Msg
     , size : Window.Size
     }
@@ -38,15 +37,9 @@ type alias Model =
 init : ( Model, Cmd Msg )
 init =
     ( Model
-        (Slider.new
-            { easing = Ease.inBack
-            , time = Time.second
-            , width = 0
-            , radius = 10
-            , fillColor = fillColor
-            }
+        (Plot.init (3 * Time.second)
+            Ease.inBounce
         )
-        (Plot.init (3 * Time.second) Ease.inBack)
         (Button.init
             { onPlay = Plot.Start |> PlotMsg
             , onReset = Plot.Reset |> PlotMsg
@@ -54,15 +47,21 @@ init =
             }
         )
         (Window.Size 0 0)
-    , Task.perform (\_ -> Debug.crash "window has no size?!") Resize Window.size
+    , Window.size
+        |> Task.perform (\_ -> Debug.crash "window has no size?!") Resize
     )
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ model.plot |> Plot.subscriptions |> Sub.map PlotMsg
-        , model.button |> Button.subscriptions |> Sub.map ButtonMsg
+        [ if
+            Plot.needsAnimating model.plot
+                || Button.needsAnimating model.button
+          then
+            AnimationFrame.diffs Animate
+          else
+            Sub.none
         , Window.resizes Resize
         ]
 
@@ -75,6 +74,7 @@ type Msg
     = Resize Window.Size
     | PlotMsg Plot.Msg
     | ButtonMsg Button.Msg
+    | Animate Time
     | NoOp
 
 
@@ -83,6 +83,13 @@ update msg model =
     case msg of
         Resize size ->
             { model | size = size } ! []
+
+        Animate dt ->
+            { model
+                | plot = model.plot |> Plot.update (Plot.Animate dt)
+                , button = model.button |> Button.animate dt
+            }
+                ! []
 
         PlotMsg msg ->
             { model | plot = model.plot |> Plot.update msg } ! []

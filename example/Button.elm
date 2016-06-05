@@ -1,11 +1,10 @@
-module Button exposing (Model, init, subscriptions, Msg, update, view)
+module Button exposing (Model, init, needsAnimating, Msg, update, animate, view)
 
 import Html.Events as HE
 import String
 import Svg as S exposing (Svg)
 import Svg.Attributes as SA
 import Time exposing (Time)
-import AnimationFrame
 import Animation exposing (Animation)
 import Helpers exposing (toDegrees)
 
@@ -36,6 +35,16 @@ init { fillColor, onPlay, onReset } =
     }
 
 
+needsAnimating : Model msg -> Bool
+needsAnimating { state } =
+    case state of
+        AnimatingTo _ _ ->
+            True
+
+        _ ->
+            False
+
+
 type alias Params =
     { alpha : Float
     , gamma : Float
@@ -43,16 +52,6 @@ type alias Params =
     , s : Float
     , d : Float
     }
-
-
-subscriptions : Model msg -> Sub Msg
-subscriptions model =
-    case model.state of
-        AnimatingTo _ _ ->
-            AnimationFrame.diffs Animate
-
-        _ ->
-            Sub.none
 
 
 
