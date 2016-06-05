@@ -120,8 +120,7 @@ view model =
             "translate(" ++ toString (width // 2) ++ " " ++ toString (height // 2) ++ ")"
 
         buttonTransform =
-            {- "translate(0 30) " ++ -}
-            " scale(10)"
+            "translate(" ++ toString (width // -4 - 30) ++ ") scale(10)"
 
         plotStyle =
             Plot.Style (width // 2) (height // 2) fillColor 100
