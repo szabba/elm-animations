@@ -21,14 +21,18 @@ type alias Model msg =
 
 
 type State
+    = Plain PlainState
+    | AnimatingTo PlainState (Animation Params)
+
+
+type PlainState
     = Play
     | Reset
-    | AnimatingTo State (Animation Params)
 
 
 init : { fillColor : String, onPlay : msg, onReset : msg } -> Model msg
 init { fillColor, onPlay, onReset } =
-    { state = Play
+    { state = Plain Play
     , onPlay = onPlay
     , onReset = onReset
     , fillColor = fillColor
@@ -59,19 +63,34 @@ type alias Params =
 
 
 type Msg
-    = Animate Time
-    | Clicked
+    = Clicked
     | NoOp
 
 
 update : Msg -> Model msg -> ( Model msg, Maybe msg )
 update msg model =
     case msg of
-        Animate dt ->
-            ( model |> animate dt, Nothing )
-
         Clicked ->
-            model |> onClick
+            case model.state of
+                Plain Play ->
+                    ( { model | state = playToReset |> AnimatingTo Reset }
+                    , Just model.onPlay
+                    )
+
+                Plain Reset ->
+                    ( { model | state = resetToPlay |> AnimatingTo Play }
+                    , Just model.onReset
+                    )
+
+                AnimatingTo Play currAnimation ->
+                    ( { model | state = currAnimation |> Animation.reverse |> AnimatingTo Reset }
+                    , Just model.onPlay
+                    )
+
+                AnimatingTo Reset currAnimation ->
+                    ( { model | state = currAnimation |> Animation.reverse |> AnimatingTo Play }
+                    , Just model.onReset
+                    )
 
         NoOp ->
             ( model, Nothing )
@@ -86,35 +105,12 @@ animate dt model =
                     animation |> Animation.run dt
             in
                 if updatedAnimation |> Animation.isDone then
-                    { model | state = nextState }
+                    { model | state = Plain nextState }
                 else
                     { model | state = AnimatingTo nextState updatedAnimation }
 
         _ ->
             model
-
-
-onClick : Model msg -> ( Model msg, Maybe msg )
-onClick model =
-    case model.state of
-        AnimatingTo _ _ ->
-            ( model, Nothing )
-
-        Play ->
-            ( { model | state = animation |> AnimatingTo Reset }
-            , Just model.onPlay
-            )
-
-        Reset ->
-            ( { model
-                | state =
-                    animation
-                        |> Animation.reverse
-                        |> Animation.reset
-                        |> AnimatingTo Play
-              }
-            , Just model.onReset
-            )
 
 
 
@@ -124,20 +120,25 @@ onClick model =
 view : Model msg -> Svg Msg
 view model =
     let
-        ( msg, params ) =
+        params =
             case model.state of
-                AnimatingTo _ runningAnimation ->
-                    ( NoOp, runningAnimation |> Animation.sample )
+                AnimatingTo _ running ->
+                    running
 
-                Play ->
-                    ( Clicked, animation |> Animation.sample )
+                Plain Play ->
+                    playToReset
 
-                Reset ->
-                    ( Clicked, animation |> Animation.reverse |> Animation.reset |> Animation.sample )
+                Plain Reset ->
+                    resetToPlay
     in
-        [ viewTriangle, viewTail ]
-            |> List.map (\viewF -> viewF model params)
-            |> S.g [ HE.onClick msg ]
+        [ box, triangle, tail ]
+            |> List.map
+                (\viewF ->
+                    params
+                        |> Animation.sample
+                        |> viewF model
+                )
+            |> S.g [ HE.onClick Clicked ]
 
 
 type alias Triangle a =
@@ -157,8 +158,8 @@ type alias Tail a =
     }
 
 
-animation : Animation Params
-animation =
+playToReset : Animation Params
+playToReset =
     Time.second
         |> Animation.interval
         |> Animation.map
@@ -172,8 +173,27 @@ animation =
             )
 
 
-viewTriangle : { b | fillColor : String } -> Triangle a -> Svg msg
-viewTriangle { fillColor } { alpha, r, s, d } =
+resetToPlay : Animation Params
+resetToPlay =
+    playToReset
+        |> Animation.reverse
+        |> Animation.reset
+
+
+box : a -> b -> Svg msg
+box _ _ =
+    S.rect
+        [ SA.x "-1"
+        , SA.y "-1"
+        , SA.width "2"
+        , SA.height "2"
+        , SA.fill "transparent"
+        ]
+        []
+
+
+triangle : { b | fillColor : String } -> Triangle a -> Svg msg
+triangle { fillColor } { alpha, r, s, d } =
     let
         transform =
             [ "rotate(" ++ (toString <| toDegrees -alpha) ++ ")"
@@ -192,8 +212,8 @@ viewTriangle { fillColor } { alpha, r, s, d } =
             [ S.polygon [ SA.points points, SA.fill fillColor ] [] ]
 
 
-viewTail : { b | fillColor : String } -> Tail a -> Svg msg
-viewTail { fillColor } ({ r, alpha, gamma } as tail) =
+tail : { b | fillColor : String } -> Tail a -> Svg msg
+tail { fillColor } ({ r, alpha, gamma } as tail) =
     S.g
         [ SA.transform <| "rotate(" ++ (toString <| (+) 89 << toDegrees <| -alpha) ++ ")"
         ]
