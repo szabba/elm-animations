@@ -49,11 +49,7 @@ update msg model =
             { model | progress = Animation.immediately 0 }
 
         Animate dt ->
-            { model
-                | progress =
-                    model.progress
-                        |> Animation.run dt
-            }
+            { model | progress = model.progress |> Animation.run dt }
 
 
 

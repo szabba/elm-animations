@@ -3,6 +3,7 @@ module Main exposing (..)
 import AnimationFrame
 import Html.App as App
 import Html.Attributes as HA
+import List.Extra as List
 import Svg as S exposing (Svg, Attribute)
 import Svg.Attributes as SA
 import Task
@@ -112,33 +113,46 @@ update msg model =
 
 view : Model -> Svg Msg
 view model =
-    let
-        { width, height } =
-            model.size
+    [ plot
+    , playResetButton
+    ]
+        |> List.map ((|>) model)
+        |> fullScreen model.size []
 
-        transform =
-            "translate(" ++ toString (width // 2) ++ " " ++ toString (height // 2) ++ ")"
 
-        buttonTransform =
-            "translate(" ++ toString (width // -4 - 30) ++ ") scale(10)"
+fullScreen : Window.Size -> List (Attribute msg) -> List (Svg msg) -> Svg msg
+fullScreen { width, height } attrs =
+    [ SA.version "1.1"
+    , SA.baseProfile "full"
+    , HA.attribute "xmlns" "http://www.w3.org/2000/svg"
+    , SA.width <| toString <| width
+    , SA.height <| toString <| height
+    , SA.transform <| "translate(" ++ toString (width // 2) ++ " " ++ toString (height // 2) ++ ")"
+    , HA.style [ (,) "display" "block" ]
+    ]
+        |> (++) attrs
+        |> S.svg
 
-        plotStyle =
-            Plot.Style (width // 2) (height // 2) fillColor 100
-    in
-        S.svg
-            [ SA.version "1.1"
-            , SA.baseProfile "full"
-            , HA.attribute "xmlns" "http://www.w3.org/2000/svg"
-            , SA.width <| toString <| width
-            , SA.height <| toString <| height
-            , SA.transform transform
-            , HA.style [ (,) "display" "block" ]
-            ]
-            [ Plot.view plotStyle model.plot
-            , S.g
-                [ SA.transform buttonTransform
-                ]
-                [ model.button |> Button.view |> App.map ButtonMsg ]
+
+plot : Model -> Svg msg
+plot model =
+    model.plot
+        |> Plot.view
+            { width = model.size.width // 2
+            , height = model.size.height // 2
+            , color = fillColor
+            , density = 250
+            }
+
+
+playResetButton : Model -> Svg Msg
+playResetButton model =
+    model.button
+        |> Button.view
+        |> App.map ButtonMsg
+        |> List.singleton
+        |> S.g
+            [ SA.transform <| "translate(" ++ toString (model.size.width // -4 - 30) ++ ") scale(10)"
             ]
 
 
