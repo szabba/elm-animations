@@ -26,6 +26,8 @@ toSvg t { width, height } =
     in
         S.circle
             [ SA.r <| toString <| t * maxRadius
+            , SA.cx "0"
+            , SA.cy "0"
             , SA.stroke "#000000"
             , SA.fillOpacity "0"
             , SA.strokeWidth "5"

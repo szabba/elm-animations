@@ -123,18 +123,21 @@ view { window, animation } =
                 |> Animation.sample
                 |> App.map (always NoOp)
     in
-        fullScreen window [] [ svg ]
+        fullScreen window [ svg ]
 
 
-fullScreen : Window.Size -> List (Attribute msg) -> List (Svg msg) -> Svg msg
-fullScreen { width, height } attrs =
-    [ SA.version "1.1"
-    , SA.baseProfile "full"
-    , HA.attribute "xmlns" "http://www.w3.org/2000/svg"
-    , SA.width <| toString <| width
-    , SA.height <| toString <| height
-    , SA.transform <| "translate(" ++ toString (width // 2) ++ " " ++ toString (height // 2) ++ ")"
-    , HA.style [ (,) "display" "block" ]
-    ]
-        |> (++) attrs
-        |> S.svg
+fullScreen : Window.Size -> List (Svg msg) -> Svg msg
+fullScreen { width, height } children =
+    S.svg
+        [ SA.version "1.1"
+        , SA.baseProfile "full"
+        , HA.attribute "xmlns" "http://www.w3.org/2000/svg"
+        , SA.width <| toString <| width
+        , SA.height <| toString <| height
+        , HA.style [ (,) "display" "block" ]
+        ]
+        [ S.g
+            [ SA.transform <| "translate(" ++ toString (width // 2) ++ " " ++ toString (height // 2) ++ ")"
+            ]
+            children
+        ]
