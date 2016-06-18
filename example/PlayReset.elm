@@ -8,6 +8,7 @@ import Tuple2
 import Window
 import Animation exposing (Animation)
 import Animation.App as App
+import Helpers
 
 
 main : Program Never
@@ -45,8 +46,8 @@ box _ =
 
 playToResetAndBack : Animation Params
 playToResetAndBack =
-    (playToReset |> freezeEndFor Time.second)
-        `Animation.append` (resetToPlay |> freezeEndFor Time.second)
+    (playToReset |> Helpers.freezeEndFor Time.second)
+        `Animation.append` (resetToPlay |> Helpers.freezeEndFor Time.second)
 
 
 playToReset : Animation Params
@@ -70,12 +71,6 @@ resetToPlay =
     playToReset
         |> Animation.reverse
         |> Animation.reset
-
-
-freezeEndFor : Time -> Animation a -> Animation a
-freezeEndFor t animation =
-    animation
-        |> Animation.continue t always
 
 
 type alias Triangle a =
