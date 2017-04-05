@@ -9,7 +9,6 @@ import Animation.App as App
 import Helpers
 
 
-main : Program Never
 main =
     App.program
         { init = pulse |> Animation.map toSvg

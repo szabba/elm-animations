@@ -14,7 +14,6 @@ an [`Animation`](./Animation#Animation).
 
 import AnimationFrame
 import Html exposing (Attribute)
-import Html.App as App
 import Html.Attributes as HA
 import Svg as S exposing (Svg)
 import Svg.Attributes as SA
@@ -29,27 +28,29 @@ import Animation exposing (Animation)
 that runs an animation, possibly looping over it.
 
 -}
-program : { init : Animation (Window.Size -> Svg msg), loop : Bool } -> Program Never
-program { init, loop } =
-    programWithFlags
-        { init = always init
-        , loop = loop
+program : { init : Animation (Window.Size -> Svg Never), loop : Bool } -> Program Never Model Msg
+program args =
+    Html.program
+        { init = init args.init
+        , subscriptions = subscriptions
+        , update = update { loop = args.loop }
+        , view = view
         }
 
 
 {-| Same as [`program`](#program), except it accepts extra arguments to be
 specified from JS when the module's being initialized. It is what
-[`Html.App.programWithFlags`](http://package.elm-lang.org/packages/elm-lang/html/1.0.0/Html-App#programWithFlags)
-is to [`Html.App.program`](http://package.elm-lang.org/packages/elm-lang/html/1.0.0/Html-App#program).
+[`Html.programWithFlags`](http://package.elm-lang.org/packages/elm-lang/html/latest/Html#programWithFlags)
+is to [`Html.program`](http://package.elm-lang.org/packages/elm-lang/html/latest/Html#program).
 
 -}
 programWithFlags :
-    { init : flags -> Animation (Window.Size -> Svg msg)
+    { init : flags -> Animation (Window.Size -> Svg Never)
     , loop : Bool
     }
-    -> Program flags
+    -> Program flags Model Msg
 programWithFlags args =
-    App.programWithFlags
+    Html.programWithFlags
         { init = \flags -> init <| args.init flags
         , subscriptions = subscriptions
         , update = update { loop = args.loop }
@@ -57,27 +58,26 @@ programWithFlags args =
         }
 
 
-type alias Model msg =
+type alias Model =
     { window : Window.Size
-    , animation : Animation (Window.Size -> Svg msg)
+    , animation : Animation (Window.Size -> Svg Never)
     }
 
 
-init : Animation (Window.Size -> Svg msg) -> ( Model msg, Cmd Msg )
+init : Animation (Window.Size -> Svg Never) -> ( Model, Cmd Msg )
 init animation =
     { window = Window.Size 0 0
     , animation = animation
     }
-        ! [ Window.size |> Task.perform (always NoOp) Resize ]
+        ! [ Window.size |> Task.perform Resize ]
 
 
 type Msg
     = Resize Window.Size
     | Animate Time
-    | NoOp
 
 
-subscriptions : Model msg -> Sub Msg
+subscriptions : Model -> Sub Msg
 subscriptions { animation } =
     [ if Animation.isDone animation then
         Sub.none
@@ -88,7 +88,7 @@ subscriptions { animation } =
         |> Sub.batch
 
 
-update : { loop : Bool } -> Msg -> Model msg -> ( Model msg, Cmd Msg )
+update : { loop : Bool } -> Msg -> Model -> ( Model, Cmd Msg )
 update { loop } msg model =
     case msg |> Debug.log "msg" of
         Animate dt ->
@@ -110,18 +110,15 @@ update { loop } msg model =
         Resize newSize ->
             { model | window = newSize } ! []
 
-        NoOp ->
-            model ! []
 
-
-view : Model msg -> Svg Msg
+view : Model -> Svg Msg
 view { window, animation } =
     let
         svg =
             animation
                 |> Animation.map (\forSize -> forSize window)
                 |> Animation.sample
-                |> App.map (always NoOp)
+                |> Html.map never
     in
         fullScreen window [ svg ]
 
