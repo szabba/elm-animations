@@ -172,8 +172,8 @@ andMap : Animation (a -> b) -> Animation a -> Animation b
 andMap (Animation f) (Animation x) =
     let
         ( end, total ) =
-            ( f.end `max` x.end
-            , f.end - f.now `max` x.end - x.now
+            ( max f.end x.end
+            , max (f.end - f.now) (x.end - x.now)
             )
 
         ext =
@@ -249,7 +249,7 @@ continue t startWith prefix =
                         |> startWith
                     )
     in
-        prefix `append` suffix
+        append prefix suffix
 
 
 

@@ -11,7 +11,6 @@ import Animation.App as App
 import Helpers
 
 
-main : Program Never
 main =
     App.program { init = playToResetAndBack |> Animation.map toSvg, loop = True }
 
@@ -46,8 +45,8 @@ box _ =
 
 playToResetAndBack : Animation Params
 playToResetAndBack =
-    (playToReset |> Helpers.freezeEndFor Time.second)
-        `Animation.append` (resetToPlay |> Helpers.freezeEndFor Time.second)
+    Animation.append (playToReset |> Helpers.freezeEndFor Time.second)
+        (resetToPlay |> Helpers.freezeEndFor Time.second)
 
 
 playToReset : Animation Params
